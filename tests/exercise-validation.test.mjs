@@ -37,8 +37,9 @@ test('exercise metadata passes structural and safety validation', () => {
   assert.doesNotThrow(() => validateExercise(repositoryRoot));
 });
 
-test('starter scaffold does not pass learner grading before implementation', () => {
-  for (const name of ['step1-architecture', 'step2-data', 'step3-api', 'step4-frontend']) {
+test('starter scaffold passes completed step one but not later implementation steps', () => {
+  assert.doesNotThrow(() => checks['step1-architecture'](repositoryRoot));
+  for (const name of ['step2-data', 'step3-api', 'step4-frontend']) {
     assert.throws(() => checks[name](repositoryRoot));
   }
 });
@@ -211,12 +212,13 @@ test('workflow-level write permissions are rejected', () => {
   assert.throws(() => validateExercise(root), /permissions: \{\}/);
 });
 
-test('step one requires a completed architecture plan', () => {
+test('step one rejects an incomplete architecture plan', () => {
   const root = copyAll();
-  assert.throws(() => checks['step1-architecture'](root), /Architecture plan must complete/);
   const architecture = path.join(root, 'docs/architecture.md');
-  fs.writeFileSync(architecture, fs.readFileSync(architecture, 'utf8').replaceAll('decision:', 'decision: keep boundaries clear').replaceAll('approach:', 'approach: implement from tests'));
+  const completedPlan = fs.readFileSync(architecture, 'utf8');
   assert.doesNotThrow(() => checks['step1-architecture'](root));
+  fs.writeFileSync(architecture, completedPlan.replace(/^- Presentation tier decision:.*$/m, '- Presentation tier decision:'));
+  assert.throws(() => checks['step1-architecture'](root), /Architecture plan must complete Presentation tier decision/);
 });
 
 test('data grader rejects placeholder seed script', () => {
