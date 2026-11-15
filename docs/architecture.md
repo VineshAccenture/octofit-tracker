@@ -29,7 +29,45 @@ OctoFit Tracker is a three-tier application for a school fitness program. The st
 ## Implementation decisions
 
 ### Presentation tier decision
-React 19 with hooks pattern (useState, useEffect) for component state management. Each page component (Activities, Teams, Leaderboard, Workouts) independently fetches data from the backend API using a centralized `getJson()` utility from `src/api/client.ts`. Components manage loading, empty, and error states with accessible ARIA roles (role="status" for loading, role="alert" for errors). Bootstrap provides consistent styling across all pages. React Router handles client-side navigation without page reloads.
+The presentation tier is implemented using React 19, TypeScript, Vite, React Router, and Bootstrap 5.
+
+**Frontend technologies and setup**:
+- React 19 with hooks (useState, useEffect) for component state management
+- TypeScript for type safety and compile-time error detection
+- Vite as the build tool and development server on port 5173
+- React Router for client-side navigation between capability pages (Activities, Teams, Leaderboard, Workouts)
+- Bootstrap 5 for responsive styling and accessible UI components
+- BrowserRouter wrapper enables React Router to manage the SPA navigation
+
+**Frontend responsibilities**:
+The frontend in `octofit-tracker/frontend/src` is responsible for:
+- Displaying activities, teams, leaderboard rankings, and workout suggestions fetched from the backend
+- Managing page navigation via React Router with routes to `/activities`, `/teams`, `/leaderboard`, and `/workouts`
+- Rendering data in accessible UI components (tables, cards, alerts with ARIA roles)
+- Coordinating asynchronous data fetching and managing component lifecycle with useEffect hooks
+
+**API communication with the backend**:
+The frontend communicates with the backend through the shared API client in `src/api/client.ts`, which exports a generic `getJson<T>(path)` function using the Fetch API.
+- The `apiBaseUrl` defaults to an empty string, allowing relative paths like `/api/activities` to be proxied by Vite
+- Vite's dev proxy configuration automatically forwards `/api/*` requests to `http://localhost:8000`, keeping the backend port private
+- The `VITE_API_BASE_URL` environment variable allows overriding the base URL for production deployments
+- HTTP errors (non-2xx status codes) are caught and converted to error states shown to the user
+
+**Loading, empty, and error state management**:
+Each page component (Activities, Teams, Leaderboard, Workouts) implements identical state management patterns using `useState` hooks for `[data, loading, error]`.
+- **Loading state**: Displayed with `role="status"` for screen reader accessibility showing "Loading..." while the API request is pending
+- **Empty state**: Shown when the API returns successfully but the response array is empty (e.g., "No activities yet"), clearly distinguishing from error states
+- **Error state**: Displayed with `role="alert"` for screen reader accessibility when the fetch fails, showing a user-friendly error message
+- **Success state**: Renders the fetched data in a styled table or list with all fields properly formatted
+- States are mutually exclusive: loading, error, empty, or success—never combining multiple states to avoid confusion
+
+**Separation between presentation and business logic**:
+- All data fetching is isolated to the API client in `src/api/client.ts`, which is imported and used uniformly across all page components
+- No page components contain business logic like validation, calculations, or filtering—they only fetch and render data
+- No components access environment variables directly; the API client centralizes all configuration
+- Response parsing is type-safe with TypeScript interfaces matching the API contract (e.g., `interface ActivitiesResponse`, `interface LeaderboardEntry`)
+- Components focus solely on presentation concerns: conditional rendering of states, formatting data for display, and managing the user's view lifecycle
+- Backend concerns like validation, user/team existence checking, and leaderboard aggregation remain entirely in the Express service layer
 
 ### Logic tier decision
 Express.js with TypeScript for type-safe route and service implementations. Routes in `src/routes/api.ts` are thin wrappers that delegate to service functions in `src/services/octofitService.ts`. All validation happens in services, which return deliberate 4xx errors (400 for bad requests, 404 for not found) rather than allowing 500 errors from validation. ObjectIds are serialized to strings in JSON responses for client consumption. Error middleware in `app.ts` catches all errors and returns consistent JSON error responses with appropriate status codes.
@@ -53,7 +91,7 @@ Suggestions are retrieved with GET /api/workouts/suggestions/:userEmail by findi
 
 ### Data-tier command: `npm run test:data --prefix octofit-tracker/backend`
 
-**Command executed**: 
+**Command executed**:
 ```bash
 npm run test:data --prefix octofit-tracker/backend
 ```
@@ -79,7 +117,7 @@ npm run test:api --prefix octofit-tracker/backend
 **Result**: ✅ All 4 API contract tests passing
 
 Test details:
-1. ✅ Activity CRUD with validation: 
+1. ✅ Activity CRUD with validation:
    - POST with empty body returns 400
    - POST with non-existent user/team IDs returns 4xx (not 500)
    - POST with malformed IDs returns 4xx (not 500)
